@@ -2,6 +2,13 @@
 
 Dokumen ini menjelaskan versi web React + Supabase + Vercel. Versi Python TCP tetap tersedia untuk demo socket lokal.
 
+## Live URL
+
+- Production: https://jempol-turbo-web.vercel.app
+- Inspect: https://vercel.com/gluttony6547s-projects/jempol-turbo-web/7wLHLjuK8e54Biaj2Q5AjW2FUREd
+
+Catatan: deployment frontend sudah aktif. Multiplayer online penuh baru aktif setelah `VITE_SUPABASE_URL` dan `VITE_SUPABASE_ANON_KEY` diisi di Vercel, lalu migration dan Edge Functions Supabase diterapkan.
+
 ## Local Web Run
 
 1. Install dependency:
