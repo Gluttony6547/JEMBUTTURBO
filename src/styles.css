@@ -1,0 +1,68 @@
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Oxanium:wght@500;700;800&family=Rajdhani:wght@500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: #0a0e1a;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  font-family: "Rajdhani", "Segoe UI", sans-serif;
+}
+
+button,
+input,
+textarea {
+  border-radius: 0;
+}
+
+.hud-grid {
+  background-image:
+    linear-gradient(rgba(59, 130, 246, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.12) 1px, transparent 1px),
+    linear-gradient(135deg, transparent 48%, rgba(234, 179, 8, 0.16) 49%, transparent 51%);
+  background-size: 42px 42px, 42px 42px, 84px 84px;
+}
+
+.panel-dark {
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background:
+    linear-gradient(135deg, rgba(30, 64, 175, 0.14), rgba(10, 14, 26, 0.86)),
+    rgba(255, 255, 255, 0.04);
+  box-shadow: inset 4px 0 0 rgba(59, 130, 246, 0.45);
+  backdrop-filter: blur(14px);
+}
+
+.panel-bright {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background:
+    linear-gradient(135deg, rgba(240, 244, 248, 0.98), rgba(219, 234, 254, 0.94)),
+    #f0f4f8;
+  box-shadow: inset 5px 0 0 rgba(30, 64, 175, 0.78), 0 18px 60px rgba(0, 0, 0, 0.24);
+}
+
+.target-text {
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: clamp(1rem, 1.4vw, 1.35rem);
+  line-height: 1.85;
+  color: #0a0e1a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

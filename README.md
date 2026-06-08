@@ -5,6 +5,9 @@ Jempol Turbo adalah game typing battle real-time berbasis jaringan. Dua pemain m
 ## Fitur
 
 - Python TCP socket client-server.
+- React + Vite + TypeScript web app.
+- Supabase-ready matchmaking, Edge Functions, dan Realtime Broadcast.
+- Vercel-ready frontend deploy.
 - Server memakai `selectors` untuk I/O multiplexing banyak client.
 - Room system: 1 room berisi 2 player.
 - Matchmaking otomatis.
@@ -41,7 +44,31 @@ docs/
   panduan_penggunaan.md
   protocol.md
   laporan.md
+  web_deploy.md
 ```
+
+## Web App
+
+Install dependency:
+
+```bash
+npm install
+```
+
+Jalankan web app:
+
+```bash
+npm run dev
+```
+
+Build dan test:
+
+```bash
+npm run test
+npm run build
+```
+
+Isi `.env.local` dari `.env.example` untuk mengaktifkan Supabase online mode. Tanpa env, web app berjalan dalam demo lokal.
 
 ## Cara Menjalankan
 
