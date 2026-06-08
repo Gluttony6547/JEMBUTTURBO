@@ -21,6 +21,13 @@ type PlayerRow = PlayerSnapshot & {
   joined_at?: string;
 };
 
+type QueueRow = {
+  username: string;
+  mode: ModeId;
+  joined_at: string;
+  last_seen_at: string;
+};
+
 type MatchStateResponse = {
   match: MatchPayload;
   waiting?: boolean;
@@ -28,6 +35,8 @@ type MatchStateResponse = {
   needed_count?: number;
   waiting_for?: string[];
 };
+
+const QUEUE_STALE_MS = 15_000;
 
 function client() {
   if (!supabase) {
@@ -153,17 +162,34 @@ async function directJoinMatchmaking(username: string, mode: ModeId): Promise<Ma
   }
 
   const normalizedMode = normalizeMode(mode);
-  const { error: upsertError } = await db
+  const now = new Date().toISOString();
+  const staleCutoff = new Date(Date.now() - QUEUE_STALE_MS).toISOString();
+
+  const { error: staleDeleteError } = await db.from("matchmaking_queue").delete().lt("last_seen_at", staleCutoff);
+  if (staleDeleteError) throw staleDeleteError;
+
+  const { data: currentQueueEntry, error: currentQueueError } = await db
     .from("matchmaking_queue")
-    .upsert(
-      { username: cleanUsername, mode: normalizedMode, joined_at: new Date().toISOString() },
-      { onConflict: "username" },
-    );
-  if (upsertError) throw upsertError;
+    .select("username, mode, joined_at, last_seen_at")
+    .eq("username", cleanUsername)
+    .maybeSingle();
+  if (currentQueueError) throw currentQueueError;
+
+  const queueEntry = currentQueueEntry as QueueRow | null;
+  const { error: queueWriteError } =
+    queueEntry?.mode === normalizedMode
+      ? await db.from("matchmaking_queue").update({ last_seen_at: now }).eq("username", cleanUsername)
+      : await db
+          .from("matchmaking_queue")
+          .upsert(
+            { username: cleanUsername, mode: normalizedMode, joined_at: now, last_seen_at: now },
+            { onConflict: "username" },
+          );
+  if (queueWriteError) throw queueWriteError;
 
   const { data: queue, error: queueError } = await db
     .from("matchmaking_queue")
-    .select("*")
+    .select("username, mode, joined_at, last_seen_at")
     .eq("mode", normalizedMode)
     .order("joined_at", { ascending: true })
     .limit(2);

@@ -2,6 +2,8 @@ import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
 import { fetchMatch, serviceClient } from "../_shared/supabase.ts";
 import { generateTargetText, modePayload, normalizeMode, shapeMatch } from "../_shared/game.ts";
 
+const QUEUE_STALE_MS = 15_000;
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -33,20 +35,38 @@ Deno.serve(async (req) => {
     }
 
     const mode = normalizeMode(body.mode);
+    const now = new Date().toISOString();
+    const staleCutoff = new Date(Date.now() - QUEUE_STALE_MS).toISOString();
+
+    const { error: staleDeleteError } = await client.from("matchmaking_queue").delete().lt("last_seen_at", staleCutoff);
+    if (staleDeleteError) throw staleDeleteError;
+
+    const { data: currentQueueEntry, error: currentQueueError } = await client
+      .from("matchmaking_queue")
+      .select("username, mode, joined_at, last_seen_at")
+      .eq("username", username)
+      .maybeSingle();
+    if (currentQueueError) throw currentQueueError;
+
+    const queuePayload =
+      currentQueueEntry?.mode === mode
+        ? { username, last_seen_at: now }
+        : { username, mode, joined_at: now, last_seen_at: now };
+
     const { error: upsertError } = await client
       .from("matchmaking_queue")
-      .upsert({ username, mode, joined_at: new Date().toISOString() }, { onConflict: "username" });
+      .upsert(queuePayload, { onConflict: "username" });
     if (upsertError) throw upsertError;
 
     const { data: queue, error: queueError } = await client
       .from("matchmaking_queue")
-      .select("*")
+      .select("username, mode, joined_at, last_seen_at")
       .eq("mode", mode)
       .order("joined_at", { ascending: true })
       .limit(2);
     if (queueError) throw queueError;
 
-    if (!queue || queue.length < 2) {
+    if (!queue || queue.length < 2 || queue[0].username !== username) {
       return jsonResponse({ status: "queued", queue_size: queue?.length ?? 1, ...modePayload(mode) });
     }
 

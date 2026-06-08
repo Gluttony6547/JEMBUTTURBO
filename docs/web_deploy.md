@@ -5,7 +5,7 @@ Dokumen ini menjelaskan versi web React + Supabase + Vercel. Versi Python TCP te
 ## Live URL
 
 - Production: https://jempol-turbo-web.vercel.app
-- Inspect: https://vercel.com/gluttony6547s-projects/jempol-turbo-web/75ib1FG8JsBz5bxPrv2Kw7ZjmaYm
+- Inspect: https://vercel.com/gluttony6547s-projects/jempol-turbo-web/De771TMm7Jg9ZKP1UsdYJdXEEoKn
 
 Catatan: deployment frontend sudah aktif. Env Supabase production sudah diisi di Vercel dan migration database sudah diterapkan. Selama Edge Functions belum dideploy, frontend memakai direct Supabase table fallback untuk matchmaking online.
 
