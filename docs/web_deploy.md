@@ -5,9 +5,9 @@ Dokumen ini menjelaskan versi web React + Supabase + Vercel. Versi Python TCP te
 ## Live URL
 
 - Production: https://jempol-turbo-web.vercel.app
-- Inspect: https://vercel.com/gluttony6547s-projects/jempol-turbo-web/7wLHLjuK8e54Biaj2Q5AjW2FUREd
+- Inspect: https://vercel.com/gluttony6547s-projects/jempol-turbo-web/75ib1FG8JsBz5bxPrv2Kw7ZjmaYm
 
-Catatan: deployment frontend sudah aktif. Multiplayer online penuh baru aktif setelah `VITE_SUPABASE_URL` dan `VITE_SUPABASE_ANON_KEY` diisi di Vercel, lalu migration dan Edge Functions Supabase diterapkan.
+Catatan: deployment frontend sudah aktif. Env Supabase production sudah diisi di Vercel dan migration database sudah diterapkan. Selama Edge Functions belum dideploy, frontend memakai direct Supabase table fallback untuk matchmaking online.
 
 ## Local Web Run
 
@@ -47,6 +47,12 @@ supabase link --project-ref <project-ref>
 supabase db push
 ```
 
+Jika belum login Supabase CLI tetapi punya database password, migration bisa diterapkan dengan direct Postgres URL:
+
+```bash
+supabase db push --db-url "postgresql://postgres:<db-password>@db.<project-ref>.supabase.co:5432/postgres"
+```
+
 4. Deploy Edge Functions:
 
 ```bash
@@ -54,6 +60,8 @@ supabase functions deploy matchmaking
 supabase functions deploy submit-input
 supabase functions deploy match-state
 ```
+
+Edge Functions membutuhkan Supabase access token/login account. Tanpa token, app masih dapat berjalan online melalui direct table fallback, karena tabel sudah diberi RLS policy demo untuk `anon` dan `authenticated`.
 
 Tables yang dibuat:
 

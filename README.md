@@ -6,7 +6,7 @@ Jempol Turbo adalah game typing battle real-time berbasis jaringan. Dua pemain m
 
 - Python TCP socket client-server.
 - React + Vite + TypeScript web app.
-- Supabase-ready matchmaking, Edge Functions, dan Realtime Broadcast.
+- Supabase-ready matchmaking, direct table fallback, Edge Functions, dan Realtime Broadcast.
 - Vercel-ready frontend deploy.
 - Production web demo: https://jempol-turbo-web.vercel.app
 - Server memakai `selectors` untuk I/O multiplexing banyak client.
@@ -71,7 +71,7 @@ npm run build
 
 Isi `.env.local` dari `.env.example` untuk mengaktifkan Supabase online mode. Tanpa env, web app berjalan dalam demo lokal.
 
-Production web demo tersedia di https://jempol-turbo-web.vercel.app. Untuk multiplayer online penuh, isi env Supabase di Vercel Project Settings terlebih dahulu.
+Production web demo tersedia di https://jempol-turbo-web.vercel.app. Env Supabase production sudah bisa diisi lewat Vercel; jika Edge Functions belum dideploy, web app memakai direct table fallback untuk matchmaking online.
 
 ## Cara Menjalankan
 

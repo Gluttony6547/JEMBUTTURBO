@@ -278,9 +278,21 @@ function App() {
     if (!remoteEnabled) {
       enterMatch(createDemoMatch(username, match.mode));
     } else {
-      void updateMatchState(match.room_id, "REMATCH_REQUEST", { username }).catch((err) =>
-        setError(err instanceof Error ? err.message : "Rematch gagal."),
-      );
+      void updateMatchState(match.room_id, "REMATCH_REQUEST", { username })
+        .then((response) => {
+          if (response.ready_count !== undefined) {
+            setRematchReady({
+              ready: response.ready_count,
+              needed: response.needed_count ?? match.players.length,
+              waitingFor: response.waiting_for ?? [],
+            });
+          }
+          if (response.match.room_id !== match.room_id) {
+            enterMatch(response.match);
+            channel.send("MATCH_FOUND", response.match);
+          }
+        })
+        .catch((err) => setError(err instanceof Error ? err.message : "Rematch gagal."));
     }
   }
 
