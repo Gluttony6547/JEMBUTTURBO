@@ -5,9 +5,11 @@ Dokumen ini menjelaskan versi web React + Supabase + Vercel. Versi Python TCP te
 ## Live URL
 
 - Production: https://jempol-turbo-web.vercel.app
-- Inspect: https://vercel.com/gluttony6547s-projects/jempol-turbo-web/De771TMm7Jg9ZKP1UsdYJdXEEoKn
+- Inspect: https://vercel.com/gluttony6547s-projects/jempol-turbo-web/DpniJy62VfJ1KySLpAvdUAMXPJzc
 
 Catatan: deployment frontend sudah aktif. Env Supabase production sudah diisi di Vercel dan migration database sudah diterapkan. Selama Edge Functions belum dideploy, frontend memakai direct Supabase table fallback untuk matchmaking online.
+
+Disconnect handling: selama arena terbuka, client mengirim heartbeat tiap 5 detik. Player yang tidak mengirim heartbeat sekitar 20 detik dianggap disconnect, sehingga match lama otomatis selesai dan tidak mengunci login berikutnya.
 
 ## Local Web Run
 

@@ -1,4 +1,5 @@
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
+import { cleanupStaleActiveMatches } from "../_shared/cleanup.ts";
 import { fetchMatch, serviceClient } from "../_shared/supabase.ts";
 import { generateTargetText, shapeMatch } from "../_shared/game.ts";
 
@@ -20,6 +21,32 @@ Deno.serve(async (req) => {
       .eq("room_id", roomId)
       .single();
     if (matchError) throw matchError;
+
+    if (event === "PLAYER_HEARTBEAT") {
+      const username = String(data.username ?? "").trim().slice(0, 24);
+      if (!username) return errorResponse("username is required");
+      await client
+        .from("match_players")
+        .update({ connected: true, last_update_at: new Date().toISOString() })
+        .eq("match_id", match.id)
+        .eq("username", username);
+      await cleanupStaleActiveMatches(client);
+      const refreshed = await fetchMatch(client, match.id);
+      return jsonResponse({ match: shapeMatch(refreshed.match, refreshed.players) });
+    }
+
+    if (event === "PLAYER_DISCONNECT") {
+      const username = String(data.username ?? "").trim().slice(0, 24);
+      if (!username) return errorResponse("username is required");
+      await client
+        .from("match_players")
+        .update({ connected: false, last_update_at: new Date().toISOString() })
+        .eq("match_id", match.id)
+        .eq("username", username);
+      await cleanupStaleActiveMatches(client);
+      const refreshed = await fetchMatch(client, match.id);
+      return jsonResponse({ match: shapeMatch(refreshed.match, refreshed.players) });
+    }
 
     if (event === "MATCH_START" && match.state === "COUNTDOWN") {
       await client

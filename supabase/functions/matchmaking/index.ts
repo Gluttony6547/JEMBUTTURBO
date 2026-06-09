@@ -1,4 +1,5 @@
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
+import { cleanupStaleActiveMatches } from "../_shared/cleanup.ts";
 import { fetchMatch, serviceClient } from "../_shared/supabase.ts";
 import { generateTargetText, modePayload, normalizeMode, shapeMatch } from "../_shared/game.ts";
 
@@ -13,6 +14,7 @@ Deno.serve(async (req) => {
     const username = String(body.username ?? "").trim().slice(0, 24);
 
     if (!username) return errorResponse("username is required");
+    await cleanupStaleActiveMatches(client);
 
     if (req.method === "DELETE") {
       const { error } = await client.from("matchmaking_queue").delete().eq("username", username);

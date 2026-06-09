@@ -19,6 +19,7 @@ type PlayerRow = PlayerSnapshot & {
   id: string;
   match_id: string;
   joined_at?: string;
+  last_update_at?: string;
 };
 
 type QueueRow = {
@@ -37,6 +38,8 @@ type MatchStateResponse = {
 };
 
 const QUEUE_STALE_MS = 15_000;
+const ACTIVE_PLAYER_STALE_MS = 20_000;
+const unavailableFunctions = new Set<string>();
 
 function client() {
   if (!supabase) {
@@ -51,9 +54,14 @@ async function invokeOrDirect<T>(
   fallback: () => Promise<T>,
   method: "POST" | "DELETE" = "POST",
 ): Promise<T> {
+  if (unavailableFunctions.has(functionName)) {
+    return fallback();
+  }
+
   try {
     return await invokeFunction<T>(functionName, body, method);
   } catch (error) {
+    unavailableFunctions.add(functionName);
     console.warn(`Falling back to direct Supabase API for ${functionName}.`, error);
     return fallback();
   }
@@ -135,10 +143,84 @@ async function fetchMatchByRoom(roomId: string): Promise<{ row: MatchRow; payloa
   };
 }
 
+function isPlayerStale(player: PlayerRow, cutoffTime: number) {
+  const lastSeen = new Date(player.last_update_at ?? player.joined_at ?? 0).getTime();
+  return !Number.isFinite(lastSeen) || lastSeen < cutoffTime;
+}
+
+function rankDisconnectedMatch(players: PlayerRow[]) {
+  return [...players].sort((a, b) => {
+    if (a.connected !== b.connected) return a.connected ? -1 : 1;
+    if (toNumber(a.score) !== toNumber(b.score)) return toNumber(b.score) - toNumber(a.score);
+    if (toNumber(a.progress) !== toNumber(b.progress)) return toNumber(b.progress) - toNumber(a.progress);
+    if (toNumber(a.wpm) !== toNumber(b.wpm)) return toNumber(b.wpm) - toNumber(a.wpm);
+    return toNumber(b.accuracy) - toNumber(a.accuracy);
+  });
+}
+
+async function cleanupStaleActiveMatches() {
+  const db = client();
+  const cutoffTime = Date.now() - ACTIVE_PLAYER_STALE_MS;
+  const { data: matches, error: matchesError } = await db
+    .from("matches")
+    .select("*")
+    .in("state", ["COUNTDOWN", "RUNNING"])
+    .order("updated_at", { ascending: true })
+    .limit(30);
+  if (matchesError) throw matchesError;
+
+  for (const rawMatch of matches ?? []) {
+    const match = rawMatch as MatchRow;
+    const { data: rawPlayers, error: playersError } = await db.from("match_players").select("*").eq("match_id", match.id);
+    if (playersError) throw playersError;
+
+    const players = (rawPlayers ?? []) as PlayerRow[];
+    if (players.length < 2) continue;
+
+    const stalePlayers = players.filter((player) => isPlayerStale(player, cutoffTime));
+    if (stalePlayers.length === 0) continue;
+
+    await db
+      .from("match_players")
+      .update({ connected: false, last_update_at: new Date().toISOString() })
+      .eq("match_id", match.id)
+      .in(
+        "username",
+        stalePlayers.map((player) => player.username),
+      );
+
+    const refreshedPlayers = players.map((player) =>
+      stalePlayers.some((stalePlayer) => stalePlayer.username === player.username)
+        ? { ...player, connected: false }
+        : player,
+    );
+    const connectedPlayers = refreshedPlayers.filter((player) => player.connected);
+    if (connectedPlayers.length === refreshedPlayers.length) continue;
+
+    const rankings = rankDisconnectedMatch(refreshedPlayers);
+    for (let index = 0; index < rankings.length; index += 1) {
+      await db.from("match_players").update({ rank: index + 1 }).eq("id", rankings[index].id);
+    }
+
+    await db
+      .from("matches")
+      .update({
+        state: "FINISHED",
+        winner: connectedPlayers[0]?.username ?? null,
+        reason: connectedPlayers.length > 0 ? "opponent disconnected" : "all players disconnected",
+        finished_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", match.id);
+  }
+}
+
 async function directJoinMatchmaking(username: string, mode: ModeId): Promise<MatchmakingResponse> {
   const db = client();
   const cleanUsername = username.trim().slice(0, 24);
   if (!cleanUsername) throw new Error("username is required");
+
+  await cleanupStaleActiveMatches();
 
   const { data: existingLinks, error: existingError } = await db
     .from("match_players")
@@ -306,6 +388,30 @@ async function directUpdateMatchState(
   const db = client();
   const { row: match } = await fetchMatchByRoom(roomId);
 
+  if (event === "PLAYER_HEARTBEAT") {
+    const username = String(data.username ?? "").trim().slice(0, 24);
+    if (!username) throw new Error("username is required");
+    await db
+      .from("match_players")
+      .update({ connected: true, last_update_at: new Date().toISOString() })
+      .eq("match_id", match.id)
+      .eq("username", username);
+    await cleanupStaleActiveMatches();
+    return { match: await fetchMatchById(match.id) };
+  }
+
+  if (event === "PLAYER_DISCONNECT") {
+    const username = String(data.username ?? "").trim().slice(0, 24);
+    if (!username) throw new Error("username is required");
+    await db
+      .from("match_players")
+      .update({ connected: false, last_update_at: new Date().toISOString() })
+      .eq("match_id", match.id)
+      .eq("username", username);
+    await cleanupStaleActiveMatches();
+    return { match: await fetchMatchById(match.id) };
+  }
+
   if (event === "MATCH_START" && match.state === "COUNTDOWN") {
     await db
       .from("matches")
@@ -380,4 +486,8 @@ export function updateMatchState(room_id: string, event: string, data: Record<st
   return invokeOrDirect<MatchStateResponse>("match-state", { room_id, event, data }, () =>
     directUpdateMatchState(room_id, event, data),
   );
+}
+
+export function sendHeartbeat(room_id: string, username: string) {
+  return updateMatchState(room_id, "PLAYER_HEARTBEAT", { username });
 }

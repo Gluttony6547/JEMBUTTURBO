@@ -14,7 +14,7 @@ import {
   Wifi,
 } from "lucide-react";
 import type { BroadcastEvent, MatchPayload, ModeId, PlayerSnapshot, Screen } from "./types";
-import { joinMatchmaking, leaveMatchmaking, submitInput, updateMatchState } from "./lib/api";
+import { joinMatchmaking, leaveMatchmaking, sendHeartbeat, submitInput, updateMatchState } from "./lib/api";
 import { createDemoMatch, finishMatch, updatePlayerFromTyping } from "./lib/demo";
 import { computeMetrics } from "./lib/scoring";
 import { GAME_MODES } from "./lib/texts";
@@ -22,6 +22,7 @@ import { isSupabaseConfigured } from "./lib/supabase";
 import { useMatchChannel } from "./hooks/useMatchChannel";
 
 const COUNTDOWN_SECONDS = 3;
+const HEARTBEAT_MS = 5_000;
 const SESSION_KEY = "jempol-turbo-web-session";
 
 function App() {
@@ -118,6 +119,25 @@ function App() {
     }, 260);
     return () => window.clearInterval(interval);
   }, [match?.room_id, match?.state, remoteEnabled, screen, startedAt]);
+
+  useEffect(() => {
+    if (!remoteEnabled || !match || screen !== "arena" || !username) return;
+
+    const beat = () => {
+      void sendHeartbeat(match.room_id, username)
+        .then((response) => {
+          if (response.match.state === "FINISHED") {
+            setMatch(response.match);
+            setScreen("results");
+          }
+        })
+        .catch(() => undefined);
+    };
+
+    beat();
+    const interval = window.setInterval(beat, HEARTBEAT_MS);
+    return () => window.clearInterval(interval);
+  }, [match?.room_id, remoteEnabled, screen, username]);
 
   async function handleJoin(event?: FormEvent) {
     event?.preventDefault();
